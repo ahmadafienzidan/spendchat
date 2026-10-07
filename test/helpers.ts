@@ -1,4 +1,7 @@
+import { env } from "cloudflare:workers";
 import { type MockInstance, vi } from "vitest";
+import { hmacSign } from "../src/crypto";
+import app from "../src/index";
 import type { IncomingMessage, WebhookPayload } from "../src/whatsapp";
 
 export const OWNER = "6281200000000";
@@ -71,5 +74,24 @@ export function mockFetch(): MockInstance<typeof fetch> {
 export function sentBodies(spy: MockInstance<typeof fetch>): string[] {
 	return spy.mock.calls.map(
 		([, init]) => JSON.parse(String(init?.body)).text.body,
+	);
+}
+
+export async function postWebhook(
+	payload: unknown,
+	secret = env.WA_APP_SECRET,
+): Promise<Response> {
+	const body = JSON.stringify(payload);
+	return app.request(
+		"/webhook",
+		{
+			method: "POST",
+			body,
+			headers: {
+				"Content-Type": "application/json",
+				"X-Hub-Signature-256": `sha256=${await hmacSign(secret, body)}`,
+			},
+		},
+		env,
 	);
 }
