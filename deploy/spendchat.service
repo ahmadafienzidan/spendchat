@@ -1,0 +1,15 @@
+[Unit]
+Description=SpendChat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=spendchat
+WorkingDirectory=/opt/spendchat
+EnvironmentFile=/etc/spendchat.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

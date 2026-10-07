@@ -1,0 +1,7 @@
+[Unit]
+Description=SpendChat database backup
+
+[Service]
+Type=oneshot
+User=spendchat
+ExecStart=/bin/sh /opt/spendchat/deploy/backup.sh
