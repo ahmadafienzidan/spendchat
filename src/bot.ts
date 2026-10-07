@@ -19,28 +19,24 @@ import {
 import { dayRange, monthLabel, monthRange, weekRange, wibMonth } from "./time";
 import type { IncomingMessage } from "./whatsapp";
 
-export async function handleMessage(
+export function handleMessage(
 	env: Bindings,
 	message: IncomingMessage,
 	now: Date,
-): Promise<string> {
+): string {
 	if (message.text === null) return NON_TEXT_REPLY;
 
 	const db = env.DB;
 	const meta = { waMessageId: message.id, now };
-	const parsed = parseMessage(
-		message.text,
-		message.sentAt,
-		await getKeywords(db),
-	);
+	const parsed = parseMessage(message.text, message.sentAt, getKeywords(db));
 
 	if (parsed.kind === "expenses") {
 		const expenses = parsed.lines.filter(isExpense);
 		if (expenses.length > 0)
-			await saveExpenses(db, expenses, { ...meta, sender: message.from });
+			saveExpenses(db, expenses, { ...meta, sender: message.from });
 		return expensesReply(
 			parsed.lines,
-			await totalForRange(db, dayRange(message.sentAt)),
+			totalForRange(db, dayRange(message.sentAt)),
 		);
 	}
 
@@ -48,24 +44,24 @@ export async function handleMessage(
 		case "today":
 			return summaryReply(
 				"Hari ini",
-				await categoryTotals(db, dayRange(message.sentAt)),
+				categoryTotals(db, dayRange(message.sentAt)),
 			);
 		case "week":
 			return summaryReply(
 				"Minggu ini",
-				await categoryTotals(db, weekRange(message.sentAt)),
+				categoryTotals(db, weekRange(message.sentAt)),
 			);
 		case "month": {
 			const month = wibMonth(message.sentAt);
 			return summaryReply(
 				monthLabel(month),
-				await categoryTotals(db, monthRange(month)),
+				categoryTotals(db, monthRange(month)),
 			);
 		}
 		case "undo":
-			return undoReply(await undoLastMessage(db, meta));
+			return undoReply(undoLastMessage(db, meta));
 		case "dashboard": {
-			const token = await createLoginToken(db, meta);
+			const token = createLoginToken(db, meta);
 			return loginReply(`${env.BASE_URL}/login?t=${token}`);
 		}
 		case "help":

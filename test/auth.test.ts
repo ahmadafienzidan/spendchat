@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { createSession, isValidSession } from "../src/auth";
 import { createLoginToken } from "../src/db";
 import app from "../src/index";
-import { sessionCookie } from "./helpers";
+import { env, sessionCookie } from "./helpers";
 
 const NOW = new Date("2026-10-01T05:00:00Z");
 

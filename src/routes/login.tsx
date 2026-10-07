@@ -12,7 +12,7 @@ login.post("/", async (c) => {
 	const form = await c.req.parseBody();
 	const token = typeof form.token === "string" ? form.token : "";
 	const now = new Date();
-	if (!(await consumeLoginToken(c.env.DB, token, now))) {
+	if (!consumeLoginToken(c.env.DB, token, now)) {
 		return c.html(
 			<LoginPage
 				token={null}

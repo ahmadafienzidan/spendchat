@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { listExpenses, saveExpenses } from "../src/db";
 import app from "../src/index";
 import type { ParsedExpense } from "../src/parser";
-import { sessionCookie } from "./helpers";
+import { env, sessionCookie } from "./helpers";
 
 const OCT = { from: "2026-10-01", to: "2026-10-31" };
 let cookie: string;

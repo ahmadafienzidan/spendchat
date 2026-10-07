@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import {
 	afterEach,
 	beforeEach,
@@ -12,6 +11,7 @@ import { listExpenses } from "../src/db";
 import app from "../src/index";
 import { NON_TEXT_REPLY } from "../src/replies";
 import {
+	env,
 	imagePayload,
 	mockFetch,
 	postWebhook,

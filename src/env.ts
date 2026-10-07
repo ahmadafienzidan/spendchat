@@ -1,5 +1,7 @@
+import type Database from "better-sqlite3";
+
 export type Bindings = {
-	DB: D1Database;
+	DB: Database.Database;
 	BASE_URL: string;
 	WA_ACCESS_TOKEN: string;
 	WA_APP_SECRET: string;

@@ -1,11 +1,30 @@
-import { env } from "cloudflare:workers";
+import Database from "better-sqlite3";
 import { type MockInstance, vi } from "vitest";
 import { createSession, SESSION_COOKIE } from "../src/auth";
 import { hmacSign } from "../src/crypto";
+import type { Bindings } from "../src/env";
 import app from "../src/index";
+import { migrate } from "../src/migrate";
 import type { IncomingMessage, WebhookPayload } from "../src/whatsapp";
 
 export const OWNER = "6281200000000";
+
+export let env: Bindings;
+
+export function resetEnv(): void {
+	const db = new Database(":memory:");
+	migrate(db, "migrations");
+	env = {
+		DB: db,
+		BASE_URL: "https://spendchat.test",
+		WA_ACCESS_TOKEN: "test-access-token",
+		WA_APP_SECRET: "test-app-secret",
+		WA_VERIFY_TOKEN: "test-verify-token",
+		WA_PHONE_NUMBER_ID: "1234567890",
+		OWNER_WA_NUMBER: OWNER,
+		SESSION_SECRET: "test-session-secret",
+	};
+}
 
 // 12:00 WIB on Thursday 2026-10-01
 export const NOON = new Date("2026-10-01T05:00:00Z");

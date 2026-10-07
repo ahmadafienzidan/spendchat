@@ -1,9 +1,8 @@
-import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { handleMessage } from "../src/bot";
 import { getKeywords, isProcessed, listExpenses } from "../src/db";
 import { HELP_TEXT, NON_TEXT_REPLY } from "../src/replies";
-import { incoming, NOON } from "./helpers";
+import { env, incoming, NOON } from "./helpers";
 
 const OCT = { from: "2026-10-01", to: "2026-10-31" };
 

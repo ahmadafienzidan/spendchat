@@ -18,7 +18,7 @@ export const dashboard = new Hono<AppEnv>();
 const MONTH = /^\d{4}-\d{2}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-dashboard.get("/dashboard", async (c) => {
+dashboard.get("/dashboard", (c) => {
 	const now = new Date();
 	const currentMonth = wibMonth(now);
 	const monthParam = c.req.query("month") ?? "";
@@ -28,15 +28,12 @@ dashboard.get("/dashboard", async (c) => {
 	const prevMonth = shiftMonth(month, -1);
 	const db = c.env.DB;
 
-	const [total, prevTotal, dailyRows, categories, expenses, categoryOptions] =
-		await Promise.all([
-			totalForRange(db, range),
-			totalForRange(db, monthRange(prevMonth)),
-			dailyTotals(db, range),
-			categoryTotals(db, range),
-			listExpenses(db, range, categoryFilter),
-			listCategories(db),
-		]);
+	const total = totalForRange(db, range);
+	const prevTotal = totalForRange(db, monthRange(prevMonth));
+	const dailyRows = dailyTotals(db, range);
+	const categories = categoryTotals(db, range);
+	const expenses = listExpenses(db, range, categoryFilter);
+	const categoryOptions = listCategories(db);
 
 	const daysInMonth = Number(range.to.slice(8));
 	const byDay = new Map(
@@ -88,7 +85,7 @@ dashboard.post("/expenses/:id", async (c) => {
 	) {
 		return c.text("Data tidak valid", 400);
 	}
-	await updateExpense(c.env.DB, Number(c.req.param("id")), {
+	updateExpense(c.env.DB, Number(c.req.param("id")), {
 		amount,
 		description,
 		category,
@@ -100,7 +97,7 @@ dashboard.post("/expenses/:id", async (c) => {
 dashboard.post("/expenses/:id/delete", async (c) => {
 	const form = await c.req.parseBody();
 	const month = field(form, "month");
-	await deleteExpense(c.env.DB, Number(c.req.param("id")));
+	deleteExpense(c.env.DB, Number(c.req.param("id")));
 	return c.redirect(
 		MONTH.test(month) ? `/dashboard?month=${month}` : "/dashboard",
 	);

@@ -1,5 +1,5 @@
-import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import type Database from "better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
 	categoryTotals,
 	consumeLoginToken,
@@ -18,8 +18,14 @@ import {
 	upsertKeyword,
 } from "../src/db";
 import type { ParsedExpense } from "../src/parser";
+import { env } from "./helpers";
 
-const db = env.DB;
+let db: Database.Database;
+
+beforeEach(() => {
+	db = env.DB;
+});
+
 const NOW = new Date("2026-10-01T05:00:00Z");
 const OCT = { from: "2026-10-01", to: "2026-10-31" };
 

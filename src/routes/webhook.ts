@@ -39,8 +39,8 @@ webhook.post("/", async (c) => {
 		JSON.parse(rawBody) as WebhookPayload,
 	)) {
 		if (message.from !== c.env.OWNER_WA_NUMBER) continue;
-		if (await isProcessed(c.env.DB, message.id)) continue;
-		const reply = await handleMessage(c.env, message, new Date());
+		if (isProcessed(c.env.DB, message.id)) continue;
+		const reply = handleMessage(c.env, message, new Date());
 		await sendText(c.env, message.from, reply);
 	}
 	return c.text("OK");

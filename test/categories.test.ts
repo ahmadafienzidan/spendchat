@@ -1,8 +1,7 @@
-import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { getKeywords } from "../src/db";
 import app from "../src/index";
-import { sessionCookie } from "./helpers";
+import { env, sessionCookie } from "./helpers";
 
 let cookie: string;
 

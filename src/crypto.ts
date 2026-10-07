@@ -1,6 +1,6 @@
 const encoder = new TextEncoder();
 
-function hmacKey(secret: string): Promise<CryptoKey> {
+function hmacKey(secret: string) {
 	return crypto.subtle.importKey(
 		"raw",
 		encoder.encode(secret),

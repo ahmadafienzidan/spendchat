@@ -1,8 +1,8 @@
-import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hmacSign } from "../src/crypto";
 import { extractMessages, sendText, verifySignature } from "../src/whatsapp";
 import {
+	env,
 	imagePayload,
 	mockFetch,
 	NOON,
