@@ -27,7 +27,21 @@ pnpm typecheck
 pnpm lint
 ```
 
-To run locally: copy `.env.example` to `.env`, fill every value (dummy values are fine), `mkdir .data`, then `pnpm dev`. The app listens on `http://127.0.0.1:3000`.
+## Try it locally (no WhatsApp needed)
+
+1. Copy `.env.example` to `.env` and fill every value; dummy values are fine locally (e.g. `WA_ACCESS_TOKEN=dev`). Keep `BASE_URL=http://localhost:3000`.
+2. `mkdir .data`
+3. `pnpm dev` starts the app on `http://127.0.0.1:3000`.
+4. In another terminal, chat with the bot. Each argument is one line of the same message:
+
+   ```bash
+   pnpm chat "bensin 50" "makan 20"
+   pnpm chat "hari ini"
+   pnpm chat dashboard
+   ```
+
+   `pnpm chat` runs the same bot logic against `.data/spendchat.db` and prints the reply instead of sending it to WhatsApp.
+5. Open the link from `pnpm chat dashboard` in your browser and press **Masuk**.
 
 ## Server setup (Ubuntu 24.04 VPS)
 
