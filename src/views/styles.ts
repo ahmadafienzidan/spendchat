@@ -38,6 +38,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px; }
 a { color: var(--bar); }
 nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
 nav h1 { font-size: 18px; margin: 0; }
+nav a { font-size: 24px; line-height: 1; padding: 8px 14px; text-decoration: none; }
+h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 .muted { color: var(--muted); }
 .secondary { color: var(--ink-2); }
