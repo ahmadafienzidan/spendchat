@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { type MockInstance, vi } from "vitest";
+import { createSession, SESSION_COOKIE } from "../src/auth";
 import { hmacSign } from "../src/crypto";
 import app from "../src/index";
 import type { IncomingMessage, WebhookPayload } from "../src/whatsapp";
@@ -94,4 +95,8 @@ export async function postWebhook(
 		},
 		env,
 	);
+}
+
+export async function sessionCookie(): Promise<string> {
+	return `${SESSION_COOKIE}=${await createSession(env.SESSION_SECRET, new Date())}`;
 }
