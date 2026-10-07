@@ -2,9 +2,9 @@
 
 **SpendChat** is a personal expense tracker for one person. Expenses are logged by sending short messages to a WhatsApp bot; a web dashboard shows, corrects, and categorizes them.
 
-- **Status:** design approved in chat on 2026-10-01; implementation plan in `docs/superpowers/plans/2026-10-01-spendchat.md`. Not implemented yet.
+- **Status:** design approved in chat on 2026-10-01 and implemented on Cloudflare Workers + D1 (`docs/superpowers/plans/2026-10-01-spendchat.md`, last commit `8b78e81`). On 2026-10-07 the hosting changed to an IDCloudHost Cloud VPS running Node.js + SQLite; port plan in `docs/superpowers/plans/2026-10-07-spendchat-vps.md`. Chat and dashboard behavior is unchanged by the port.
 - **Owner:** the only user. "Owner" below always means the owner's personal WhatsApp number.
-- **Names:** product name `SpendChat`; technical name `spendchat` (repo folder, Worker, D1 database, package).
+- **Names:** product name `SpendChat`; technical name `spendchat` (repo folder, package, systemd service, Linux user, database file).
 - **Language:** chat commands in Indonesian or English; bot replies and dashboard UI in Indonesian; code and docs in English.
 
 ## 1. Goals and non-goals
@@ -28,8 +28,8 @@ Budgets, income, CSV export, multiple users or households, currencies other than
 ### Daily flow
 
 ```
-Owner (personal WhatsApp)          Bot number (Cloud API)            Worker + D1
-─────────────────────────          ──────────────────────            ───────────
+Owner (personal WhatsApp)          Bot number (Cloud API)            VPS: Node + SQLite
+─────────────────────────          ──────────────────────            ──────────────────
 "bensin 50\nmakan 20"   ─────────▶ Meta sends webhook  ────────────▶ verify signature
                                                                       check sender = owner
                                                                       skip if already processed
@@ -40,7 +40,7 @@ Owner (personal WhatsApp)          Bot number (Cloud API)            Worker + D1
 ### Dashboard flow
 
 ```
-Owner: "dashboard" ──▶ bot replies with https://<worker>/login?t=<token>   (valid 10 min, single use)
+Owner: "dashboard" ──▶ bot replies with https://<host>/login?t=<token>   (valid 10 min, single use)
 Owner taps link    ──▶ page with a "Masuk" button
 Owner taps Masuk   ──▶ token consumed, 30-day session cookie set, redirect to /dashboard
 ```
@@ -54,13 +54,18 @@ Within 30 days the owner can open `/dashboard` directly (bookmark or the old lin
 | Bot phone number | A spare number that is **not** registered in the WhatsApp or WhatsApp Business app (delete that account first). Meta's free test number can be used while developing. |
 | Meta developer app | Type **Business**, with the WhatsApp product. |
 | Permanent access token | From a **System User** in Meta Business Settings. The token on the API Setup page expires after 24 hours. |
-| Cloudflare account | Free plan is enough: Workers + D1. |
+| Server | IDCloudHost **Cloud VPS** (created in Console Platform), smallest size (1 vCPU, 1 GB RAM), Ubuntu 24.04 LTS, login by SSH key. |
+| Domain | Bought in IDCloudHost **Client Area** (e.g. a `.my.id`), with an `A` record `spendchat.<domain>` → the VPS's public IP. Meta requires HTTPS with a valid certificate, so a hostname is mandatory. |
 
-Cost for one person's usage is expected to be zero: the bot only replies to the owner's messages, so every reply falls inside WhatsApp's free 24-hour customer-service window, and usage stays far below Workers and D1 free limits.
+Running cost is the VPS and the domain. WhatsApp costs nothing for this usage: the bot only replies to the owner's messages, so every reply falls inside WhatsApp's free 24-hour customer-service window.
 
 ## 4. Architecture
 
-One Cloudflare Worker (TypeScript, Hono) with one D1 (SQLite) database. No other services.
+One Node.js process (TypeScript, Hono on `@hono/node-server`) with one SQLite file (`better-sqlite3`), behind Caddy on a single VPS. No other services.
+
+```
+Meta ──HTTPS──▶ Caddy :443 (Let's Encrypt, spendchat.<domain>) ──HTTP──▶ node dist/server.js on 127.0.0.1:3000 ──▶ /var/lib/spendchat/spendchat.db
+```
 
 ### Routes
 
@@ -87,8 +92,11 @@ Pages are server-rendered with Hono JSX and plain HTML forms. Charts are HTML/CS
 | `time` | WIB dates/hours, day/week/month ranges, Indonesian month labels | — |
 | `money` | `Rp` formatting | — |
 | `parser` | Pure: text + message time + keywords → command or parsed lines | `time` |
-| `crypto` | HMAC sign/verify, random tokens | Web Crypto |
-| `db` | All D1 queries | `crypto` |
+| `crypto` | HMAC sign/verify, random tokens | Web Crypto (global in Node 22) |
+| `db` | All SQL queries; synchronous `better-sqlite3` calls, multi-statement writes in `db.transaction` | `crypto` |
+| `migrate` | Applies `migrations/*.sql` not yet listed in `schema_migrations`, each in a transaction, in file-name order | — |
+| `config` | Reads and validates environment variables into `Bindings` | — |
+| `server` | Entry point: config → open SQLite (WAL) → migrate → listen | `config`, `migrate`, app |
 | `whatsapp` | Signature check, payload extraction, `sendText` | `crypto` |
 | `replies` | Reply text builders | `money` |
 | `bot` | One incoming message → DB changes + reply text | `parser`, `db`, `replies`, `time` |
@@ -97,18 +105,34 @@ Pages are server-rendered with Hono JSX and plain HTML forms. Charts are HTML/CS
 
 ### Configuration
 
-| Name | Kind | Value |
-|---|---|---|
-| `DB` | D1 binding | database `spendchat` |
-| `BASE_URL` | var | Worker URL, used in the login link, e.g. `https://spendchat.<sub>.workers.dev` |
-| `WA_ACCESS_TOKEN` | secret | System User token |
-| `WA_APP_SECRET` | secret | Meta app secret, for webhook signatures |
-| `WA_VERIFY_TOKEN` | secret | Random string, also entered in Meta's webhook settings |
-| `WA_PHONE_NUMBER_ID` | secret | Bot number's Phone number ID |
-| `OWNER_WA_NUMBER` | secret | Owner number, international format without `+`, e.g. `6281234567890` |
-| `SESSION_SECRET` | secret | Random string for signing session cookies |
+Environment variables, from `/etc/spendchat.env` on the server (mode `600`, read by systemd) and from `.env` in local development. Every variable is required; if any is missing or empty, the process exits at startup with an error naming them. No defaults.
 
-## 5. Data model (D1)
+| Name | Secret | Value |
+|---|---|---|
+| `PORT` | no | `3000` |
+| `DATABASE_PATH` | no | `/var/lib/spendchat/spendchat.db` |
+| `BASE_URL` | no | Public URL, used in the login link, e.g. `https://spendchat.<domain>` |
+| `OWNER_WA_NUMBER` | no | Owner number, international format without `+`, e.g. `6281234567890` |
+| `WA_ACCESS_TOKEN` | yes | System User token |
+| `WA_APP_SECRET` | yes | Meta app secret, for webhook signatures |
+| `WA_VERIFY_TOKEN` | yes | Random string chosen by the owner, also entered in Meta's webhook settings |
+| `WA_PHONE_NUMBER_ID` | yes | Bot number's Phone number ID |
+| `SESSION_SECRET` | yes | Random string for signing session cookies, generated on the server |
+
+At runtime the app receives a `Bindings` object: the variables above minus `PORT` and `DATABASE_PATH`, plus `DB` (the open `better-sqlite3` database). Handlers read `c.env` as before.
+
+## 5. Data model (SQLite)
+
+The schema is unchanged from the D1 version; migrations `0001_init.sql` and `0002_seed_keywords.sql` are reused as-is. `migrate` adds its own bookkeeping table:
+
+```sql
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  name TEXT PRIMARY KEY,                        -- e.g. '0001_init.sql'
+  applied_at TEXT NOT NULL                      -- ISO 8601 UTC
+);
+```
+
+The database is opened with `journal_mode = WAL` and `busy_timeout = 5000`.
 
 ```sql
 CREATE TABLE expenses (
@@ -160,7 +184,7 @@ Anything unmatched → `Lainnya`.
 ## 6. Time
 
 - All dates and hours are WIB (UTC+7, no daylight saving).
-- The reference time for a message is its WhatsApp `timestamp` (when the owner sent it), not when the Worker received it. A message sent at 23:59 and delivered at 00:01 counts for the earlier day.
+- The reference time for a message is its WhatsApp `timestamp` (when the owner sent it), not when the server received it. WIB is computed by offset in code, so the server's time zone does not matter. A message sent at 23:59 and delivered at 00:01 counts for the earlier day.
 - "This week" is Monday–Sunday. "This month" is the calendar month.
 
 ## 7. Chat behavior
@@ -296,7 +320,7 @@ Login link:
 
 ```
 🔐 Link dashboard (berlaku 10 menit, sekali pakai):
-https://spendchat.<sub>.workers.dev/login?t=<64 hex chars>
+https://spendchat.<domain>/login?t=<64 hex chars>
 ```
 
 Help:
@@ -330,7 +354,7 @@ For each `POST /webhook`:
 
 ### Idempotency
 
-Meta re-delivers a webhook if it does not get a 200 quickly. Every message that **writes** records its id in `processed_messages` inside the same D1 batch (one transaction) as the write:
+Meta re-delivers a webhook if it does not get a 200 quickly. Every message that **writes** records its id in `processed_messages` inside the same SQLite transaction as the write:
 
 | Message | Written together |
 |---|---|
@@ -342,7 +366,7 @@ So a re-delivered message can never insert twice or undo a second message. Messa
 
 ### Failures
 
-No defensive try/catch. If D1 or the Graph API fails, the request returns 500, the error appears in `wrangler tail`, and Meta re-delivers. If the data was already committed but the reply failed, the re-delivery is ignored by the marker: data stays correct, the owner just gets no confirmation for that message.
+No defensive try/catch. If the database or the Graph API fails, the request returns 500, Hono's default error handler logs the error to stderr (visible with `journalctl -u spendchat`), and Meta re-delivers. If the data was already committed but the reply failed, the re-delivery is ignored by the marker: data stays correct, the owner just gets no confirmation for that message.
 
 ### Error matrix
 
@@ -354,7 +378,7 @@ No defensive try/catch. If D1 or the Graph API fails, the request returns 500, t
 | Duplicate delivery of a writing message | 200 | unchanged | — |
 | Non-text message | 200 | — | "Aku cuma bisa baca teks 🙏" |
 | Graph API send fails | 500 | kept | none (Meta retries, marker skips it) |
-| D1 fails | 500 | rolled back | none (Meta retries and it is processed then) |
+| Database write fails | 500 | rolled back | none (Meta retries and it is processed then) |
 
 ## 9. Dashboard
 
@@ -443,7 +467,7 @@ These were decided without explicit discussion; change them here before implemen
 
 ## 11. Testing
 
-Vitest with `@cloudflare/vitest-pool-workers`: tests run inside the Workers runtime with a local D1; migrations are applied once and tables are reset before each test. The Graph API is mocked by spying on `fetch`.
+Vitest in Node. Before each test, a fresh in-memory SQLite database is created and migrated, and a test `Bindings` object with fixed values is built around it; tests import it as `env` from `test/helpers.ts`. Requests go through `app.request(path, init, env)`. The Graph API is mocked by spying on `fetch`.
 
 | Area | Cases |
 |---|---|
@@ -454,11 +478,31 @@ Vitest with `@cloudflare/vitest-pool-workers`: tests run inside the Workers runt
 | webhook | handshake, bad signature, unknown sender, status event, duplicate delivery, re-delivered `hapus`, send failure keeps data |
 | auth | session signing/expiry/tampering, GET does not consume token, cookie flags, reused/expired/unknown token, redirects |
 | dashboard / categories | totals and comparison, category filter, past-month average, invalid month, edit/validation/delete, keyword add/change/delete |
+| migrate | applies all files on an empty database, records them, is a no-op on the second run, applies only a newly added file |
+| config | builds `Bindings` from a complete environment; a missing or empty variable throws an error naming it |
 
 ## 12. Tooling
 
-pnpm; TypeScript strict; Hono; Wrangler; Biome for lint and format; Vitest. `compatibility_date` is kept at or below the workerd version bundled with `@cloudflare/vitest-pool-workers` (currently `2026-08-15`). Typecheck, lint, and tests run after every implementation step.
+pnpm; TypeScript strict; Hono with `@hono/node-server`; `better-sqlite3`; esbuild bundles `src/server.ts` into `dist/server.js` (`pnpm build`); `tsx watch` for `pnpm dev`; Biome for lint and format; Vitest. Typecheck, lint, and tests run after every implementation step.
 
-## 13. Future ideas (not in v1)
+## 13. Server operations
 
-Monthly budget per category with warnings in replies; income entries; CSV export; household mode using `sender`; weekly summary sent automatically (needs a message template, since it is outside the 24-hour window).
+Files for the server live in `deploy/` and are copied into place during setup.
+
+| Piece | Detail |
+|---|---|
+| OS packages | Node.js 22 LTS (NodeSource), pnpm (Corepack), Caddy (official apt repo), `sqlite3`, `ufw` |
+| Firewall | `ufw`: allow 22, 80, 443; deny everything else. The app listens on `127.0.0.1` only. |
+| Code | Public GitHub repo cloned to `/opt/spendchat`, owned by the `spendchat` system user |
+| Data | `/var/lib/spendchat/` (owned by `spendchat`, mode `700`): `spendchat.db` and `backups/` |
+| Service | `deploy/spendchat.service`: runs `node dist/server.js` as `spendchat`, `EnvironmentFile=/etc/spendchat.env`, `Restart=on-failure`, starts on boot |
+| HTTPS | `/etc/caddy/Caddyfile`, written during setup because it contains the domain: `spendchat.<domain>` → `reverse_proxy 127.0.0.1:3000`; Caddy obtains and renews the certificate |
+| Backup | `deploy/spendchat-backup.timer` runs `deploy/backup.sh` daily at 03:00 Asia/Jakarta: `sqlite3 … ".backup …/backups/spendchat-YYYY-MM-DD.db"`, then deletes backups older than 14 days. Backups stay on the VPS (an off-server copy is a future idea). |
+| Logs | `journalctl -u spendchat` |
+| Update | `git pull`, `pnpm install --frozen-lockfile`, `pnpm build`, `systemctl restart spendchat`; migrations run on start |
+
+Responsibilities during setup: the owner creates the VPS, buys the domain and sets DNS, fills `OWNER_WA_NUMBER` and the four `WA_*` values in `/etc/spendchat.env`, and registers the webhook in Meta. Claude creates the local SSH key and, with the owner's approval, runs the server setup over SSH, writing `PORT`, `DATABASE_PATH`, `BASE_URL`, and a `SESSION_SECRET` generated on the server. Meta tokens and the owner's number never pass through the chat.
+
+## 14. Future ideas (not in v1)
+
+Monthly budget per category with warnings in replies; income entries; CSV export; household mode using `sender`; weekly summary sent automatically (needs a message template, since it is outside the 24-hour window); off-server backup copies.

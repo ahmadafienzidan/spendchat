@@ -1,5 +1,7 @@
 # SpendChat Implementation Plan
 
+> **Status:** completed on Cloudflare Workers + D1 (commits up to `f835def`). Hosting moved to a VPS on 2026-10-07; follow `docs/superpowers/plans/2026-10-07-spendchat-vps.md` for that port. Tasks below describe the original Cloudflare build.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Cloudflare Worker that records the owner's expenses from WhatsApp messages (Cloud API webhook) into D1, answers summary commands in chat, and serves a magic-link-protected dashboard to review and edit them.
