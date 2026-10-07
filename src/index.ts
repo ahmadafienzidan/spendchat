@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireSession } from "./auth";
 import type { AppEnv } from "./env";
+import { categories } from "./routes/categories";
 import { dashboard } from "./routes/dashboard";
 import { login } from "./routes/login";
 import { webhook } from "./routes/webhook";
@@ -19,6 +20,7 @@ for (const path of [
 app.get("/", (c) => c.redirect("/dashboard"));
 app.route("/webhook", webhook);
 app.route("/login", login);
+app.route("/categories", categories);
 app.route("/", dashboard);
 
 export default app;

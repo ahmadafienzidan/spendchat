@@ -173,9 +173,21 @@ export function DashboardPage(data: DashboardData) {
 	return (
 		<Layout title={`${data.label} · SpendChat`}>
 			<nav>
-				<a href={`/dashboard?month=${data.prevMonth}`}>‹</a>
+				<a
+					class="arrow"
+					href={`/dashboard?month=${data.prevMonth}`}
+					aria-label="Bulan sebelumnya"
+				>
+					‹
+				</a>
 				<h1>{data.label}</h1>
-				<a href={`/dashboard?month=${data.nextMonth}`}>›</a>
+				<a
+					class="arrow"
+					href={`/dashboard?month=${data.nextMonth}`}
+					aria-label="Bulan berikutnya"
+				>
+					›
+				</a>
 			</nav>
 
 			<div class="card">

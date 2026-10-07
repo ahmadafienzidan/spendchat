@@ -38,7 +38,7 @@ main { max-width: 720px; margin: 0 auto; padding: 16px; }
 a { color: var(--bar); }
 nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
 nav h1 { font-size: 18px; margin: 0; }
-nav a { font-size: 24px; line-height: 1; padding: 8px 14px; text-decoration: none; }
+nav a.arrow { font-size: 24px; line-height: 1; padding: 8px 14px; text-decoration: none; }
 h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 .muted { color: var(--muted); }
@@ -66,6 +66,7 @@ h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--grid); vertical-align: top; }
 td.amount, th.amount { text-align: right; }
+table.keywords td { vertical-align: middle; }
 details summary { cursor: pointer; color: var(--bar); font-size: 13px; }
 form.stack { display: grid; gap: 8px; margin-top: 8px; }
 form.inline { display: inline; }
