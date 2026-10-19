@@ -364,6 +364,8 @@ Meta re-delivers a webhook if it does not get a 200 quickly. Every message that 
 
 So a re-delivered message can never insert twice or undo a second message. Messages that write nothing (summaries, help, all lines skipped, non-text) are simply answered again on re-delivery.
 
+Neither table grows without bound: writing a marker first deletes markers older than 30 days (far beyond Meta's re-delivery window), and creating a login token first deletes expired tokens.
+
 ### Failures
 
 No defensive try/catch. If the database or the Graph API fails, the request returns 500, Hono's default error handler logs the error to stderr (visible with `journalctl -u spendchat`), and Meta re-delivers. If the data was already committed but the reply failed, the re-delivery is ignored by the marker: data stays correct, the owner just gets no confirmation for that message.

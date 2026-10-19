@@ -24,8 +24,13 @@ export type ExpenseUpdate = {
 
 const EXPENSE_COLUMNS = "id, amount, description, category, spent_on";
 const LOGIN_TOKEN_TTL_MS = 10 * 60 * 1000;
+// Far longer than Meta keeps re-delivering a webhook.
+const PROCESSED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function markProcessed(db: DB, meta: MessageMeta): void {
+	db.prepare("DELETE FROM processed_messages WHERE processed_at < ?").run(
+		new Date(meta.now.getTime() - PROCESSED_RETENTION_MS).toISOString(),
+	);
 	db.prepare(
 		"INSERT INTO processed_messages (wa_message_id, processed_at) VALUES (?, ?)",
 	).run(meta.waMessageId, meta.now.toISOString());
@@ -175,6 +180,9 @@ export function createLoginToken(db: DB, meta: MessageMeta): string {
 		meta.now.getTime() + LOGIN_TOKEN_TTL_MS,
 	).toISOString();
 	db.transaction(() => {
+		db.prepare("DELETE FROM login_tokens WHERE expires_at <= ?").run(
+			meta.now.toISOString(),
+		);
 		db.prepare(
 			"INSERT INTO login_tokens (token, expires_at) VALUES (?, ?)",
 		).run(token, expiresAt);

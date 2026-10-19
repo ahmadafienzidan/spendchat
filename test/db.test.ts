@@ -27,6 +27,7 @@ beforeEach(() => {
 });
 
 const NOW = new Date("2026-10-01T05:00:00Z");
+const DAY_MS = 24 * 60 * 60 * 1000;
 const OCT = { from: "2026-10-01", to: "2026-10-31" };
 
 function expense(overrides: Partial<ParsedExpense>): ParsedExpense {
@@ -250,5 +251,36 @@ describe("db", () => {
 		expect(await consumeLoginToken(db, expiring, elevenMinutesLater)).toBe(
 			false,
 		);
+	});
+
+	it("drops expired login tokens when creating a new one", () => {
+		createLoginToken(db, { waMessageId: "dash1", now: NOW });
+		const elevenMinutesLater = new Date(NOW.getTime() + 11 * 60 * 1000);
+		const fresh = createLoginToken(db, {
+			waMessageId: "dash2",
+			now: elevenMinutesLater,
+		});
+
+		const tokens = db
+			.prepare<[], { token: string }>("SELECT token FROM login_tokens")
+			.all()
+			.map((row) => row.token);
+		expect(tokens).toEqual([fresh]);
+	});
+
+	it("drops processed markers older than 30 days when marking a new one", () => {
+		createLoginToken(db, { waMessageId: "old", now: NOW });
+		createLoginToken(db, {
+			waMessageId: "recent",
+			now: new Date(NOW.getTime() + 29 * DAY_MS),
+		});
+		createLoginToken(db, {
+			waMessageId: "new",
+			now: new Date(NOW.getTime() + 31 * DAY_MS),
+		});
+
+		expect(isProcessed(db, "old")).toBe(false);
+		expect(isProcessed(db, "recent")).toBe(true);
+		expect(isProcessed(db, "new")).toBe(true);
 	});
 });
