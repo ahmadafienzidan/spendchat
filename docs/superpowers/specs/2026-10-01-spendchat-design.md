@@ -19,7 +19,7 @@
 
 ### Non-goals (v1)
 
-Budgets, income, CSV export, multiple users or households, currencies other than rupiah, photos / voice notes / receipts, AI parsing, reminders or scheduled messages from the bot, editing past messages in WhatsApp.
+Budgets, income, multiple users or households, currencies other than rupiah, photos / voice notes / receipts, AI parsing, reminders or scheduled messages from the bot, editing past messages in WhatsApp.
 
 `expenses.sender` stores the sender number so a shared household mode can be added later without a migration.
 
@@ -77,6 +77,7 @@ Meta ──HTTPS──▶ Caddy :443 (Let's Encrypt, spendchat.<domain>) ──H
 | `POST /login` | token | Consume token, set session, redirect to `/dashboard` |
 | `GET /` | — | Redirect to `/dashboard` |
 | `GET /dashboard?month=YYYY-MM&category=` | session | Month overview, charts, transaction table |
+| `GET /export.csv?month=YYYY-MM&category=` | session | Download the month's expenses as CSV |
 | `POST /expenses/:id` | session | Edit an expense |
 | `POST /expenses/:id/delete` | session | Delete an expense |
 | `GET /categories` | session | Keyword → category list |
@@ -437,6 +438,7 @@ Query: `month=YYYY-MM` (invalid or missing → current WIB month), `category=` (
 - **Table**: newest date first. Each row's **Ubah** expands a form (amount, description, category with suggestions, date) and a **Hapus** button with a confirmation dialog.
 - Edit validation: amount is a whole number > 0; description and category non-empty after trimming; date `YYYY-MM-DD`. Invalid → 400 "Data tidak valid". After saving, go to the month of the (possibly new) date.
 - Editing an expense's category does **not** change keywords; only chat tags and the Categories page do.
+- **Unduh CSV** link next to **Atur kategori** downloads `spendchat-YYYY-MM.csv` for the month, with the same category filter as the table: columns `Tanggal,Keterangan,Kategori,Nominal` (date `YYYY-MM-DD`, amount in whole rupiah), oldest first, comma-separated with CRLF line endings, RFC 4180 quoting, and a UTF-8 BOM so Excel reads non-ASCII text correctly.
 
 ### 9.3 Categories page (`/categories`)
 
@@ -507,4 +509,4 @@ Responsibilities during setup: the owner creates the VPS, buys the domain and se
 
 ## 14. Future ideas (not in v1)
 
-Monthly budget per category with warnings in replies; income entries; CSV export; household mode using `sender`; weekly summary sent automatically (needs a message template, since it is outside the 24-hour window); off-server backup copies.
+Monthly budget per category with warnings in replies; income entries; household mode using `sender`; weekly summary sent automatically (needs a message template, since it is outside the 24-hour window); off-server backup copies.

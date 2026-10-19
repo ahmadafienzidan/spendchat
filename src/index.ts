@@ -10,6 +10,7 @@ const app = new Hono<AppEnv>();
 
 for (const path of [
 	"/dashboard",
+	"/export.csv",
 	"/expenses/*",
 	"/categories",
 	"/categories/*",

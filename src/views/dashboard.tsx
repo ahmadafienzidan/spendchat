@@ -258,6 +258,12 @@ export function DashboardPage(data: DashboardData) {
 
 			<p>
 				<a href="/categories">Atur kategori</a>
+				{" · "}
+				<a
+					href={`/export.csv?month=${data.month}${data.categoryFilter ? `&category=${encodeURIComponent(data.categoryFilter)}` : ""}`}
+				>
+					Unduh CSV
+				</a>
 			</p>
 		</Layout>
 	);

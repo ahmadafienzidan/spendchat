@@ -17,6 +17,8 @@ export const dashboard = new Hono<AppEnv>();
 
 const MONTH = /^\d{4}-\d{2}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+// Without it Excel reads the file as ANSI and garbles non-ASCII text.
+const UTF8_BOM = String.fromCharCode(0xfeff);
 
 dashboard.get("/dashboard", (c) => {
 	const now = new Date();
@@ -68,6 +70,31 @@ dashboard.get("/dashboard", (c) => {
 			expenses={expenses}
 		/>,
 	);
+});
+
+function csvField(value: string | number): string {
+	const text = String(value);
+	return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+dashboard.get("/export.csv", (c) => {
+	const monthParam = c.req.query("month") ?? "";
+	const month = MONTH.test(monthParam) ? monthParam : wibMonth(new Date());
+	const expenses = listExpenses(
+		c.env.DB,
+		monthRange(month),
+		c.req.query("category") || null,
+	).reverse();
+
+	const rows = [
+		["Tanggal", "Keterangan", "Kategori", "Nominal"],
+		...expenses.map((e) => [e.spent_on, e.description, e.category, e.amount]),
+	];
+	const body = rows.map((row) => `${row.map(csvField).join(",")}\r\n`).join("");
+	return c.body(`${UTF8_BOM}${body}`, 200, {
+		"Content-Type": "text/csv; charset=utf-8",
+		"Content-Disposition": `attachment; filename="spendchat-${month}.csv"`,
+	});
 });
 
 dashboard.post("/expenses/:id", async (c) => {

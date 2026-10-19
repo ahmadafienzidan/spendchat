@@ -84,6 +84,7 @@ describe("GET /dashboard", () => {
 		expect(html).toContain("makan siang");
 		expect(html).not.toContain("buku");
 		expect(html).toContain('data-tip="3 Okt: Rp20.000"');
+		expect(html).toContain('href="/export.csv?month=2026-10"');
 	});
 
 	it("filters transactions by category", async () => {
@@ -92,6 +93,9 @@ describe("GET /dashboard", () => {
 		).text();
 		expect(html).toContain("makan siang");
 		expect(html).not.toContain(">bensin<");
+		expect(html).toContain(
+			'href="/export.csv?month=2026-10&amp;category=Makan"',
+		);
 	});
 
 	it("uses the average over all days for a past month", async () => {
@@ -102,6 +106,54 @@ describe("GET /dashboard", () => {
 
 	it("falls back to the current month for an invalid month parameter", async () => {
 		expect((await get("/dashboard?month=bogus")).status).toBe(200);
+	});
+});
+
+describe("GET /export.csv", () => {
+	it("downloads the month's expenses oldest first", async () => {
+		const response = await get("/export.csv?month=2026-10");
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/csv; charset=utf-8",
+		);
+		expect(response.headers.get("Content-Disposition")).toBe(
+			'attachment; filename="spendchat-2026-10.csv"',
+		);
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+		expect(new TextDecoder().decode(bytes)).toBe(
+			"Tanggal,Keterangan,Kategori,Nominal\r\n" +
+				"2026-10-01,bensin,Transport,50000\r\n" +
+				"2026-10-03,makan siang,Makan,20000\r\n",
+		);
+	});
+
+	it("applies the category filter", async () => {
+		const csv = await (
+			await get("/export.csv?month=2026-10&category=Makan")
+		).text();
+		expect(csv).toContain("makan siang");
+		expect(csv).not.toContain("bensin");
+	});
+
+	it("quotes fields with commas, quotes or newlines", async () => {
+		await saveExpenses(
+			env.DB,
+			[
+				expense({
+					description: 'kopi "susu", gula',
+					spentOn: "2026-10-05",
+				}),
+			],
+			{ waMessageId: "quote", now: new Date(), sender: "6281200000000" },
+		);
+		const csv = await (await get("/export.csv?month=2026-10")).text();
+		expect(csv).toContain('2026-10-05,"kopi ""susu"", gula",Lainnya,10000\r\n');
+	});
+
+	it("requires a session", async () => {
+		const response = await app.request("/export.csv", {}, env);
+		expect(response.status).toBe(302);
 	});
 });
 
